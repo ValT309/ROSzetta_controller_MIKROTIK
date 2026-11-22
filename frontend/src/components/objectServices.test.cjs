@@ -1,0 +1,17 @@
+const assert=require('node:assert/strict');
+const {buildServices,defaultServices}=require(process.argv[2]);
+const p={wifiEnabled:true,model:'hAP ax²',vlans:[{id:'120',tagged:'ether4'},{id:'140',tagged:'ether4'}],ports:[{name:'ether1'}],guests:'140',firewallProfile:'standard'};
+const make=()=>{const s=defaultServices();s.country='Russia';s.corpWifi={...s.corpWifi,ssid:'Corp',vlan:'120',password:'test-corp-123'};s.guestWifi={...s.guestWifi,enabled:true,ssid:'Guest',vlan:'140',password:'test-guest-123'};return s};
+let n=0;const test=(name,fn)=>{fn();n++;console.log('PASS',name)};
+test('default disabled services',()=>assert.deepEqual(buildServices(defaultServices(),{...p,wifiEnabled:false}),{errors:[],config:'',inputRules:[]}));
+test('AX dual band VLAN and virtual SSID',()=>{const r=buildServices(make(),p);assert.deepEqual(r.errors,[]);assert.match(r.config,/datapath.vlan-id=140 datapath.bridge=bridge-lan/);assert.match(r.config,/tagged=bridge-lan,ether4,rz-guest24,rz-guest5/);assert.match(r.config,/master-interface=wifi2/);});
+test('RB5009 rejects local radio',()=>assert(buildServices(make(),{...p,model:'RB5009'}).errors.length));
+test('CAPsMAN AX provisioning',()=>{const r=buildServices({...make(),wifiMode:'capsman',capVlan:'120',capAddress:'192.168.120.10'},{...p,model:'RB5009'});assert.deepEqual(r.errors,[]);assert.match(r.config,/supported-bands=5ghz-ax/);assert.match(r.config,/capsman set enabled=yes interfaces=vlan120/);assert.match(r.inputRules[0],/src-address=192.168.120.10/);assert.doesNotMatch(r.config,/master-interface=wifi/)});
+test('CAP guest management blocked',()=>assert(buildServices({...make(),wifiMode:'capsman',capVlan:'140',capAddress:'192.168.140.10'},p).errors.length));
+test('RADIUS required and generated',()=>{const s=make();s.corpWifi.auth='wpa2-eap';assert(buildServices(s,p).errors.length);const r=buildServices({...s,radiusAddress:'10.0.1.2',radiusSecret:'secret-test'},p);assert.deepEqual(r.errors,[]);assert.match(r.config,/radius add service=wireless/);assert.match(r.config,/authentication-types=wpa2-eap/)});
+test('bad PSK and guest mismatch',()=>{const s=make();s.guestWifi.password='123';assert(buildServices(s,p).errors.length);assert(buildServices(make(),{...p,guests:''}).errors.length)});
+test('one band disabled',()=>{const s=make();s.corpWifi.band5=false;s.guestWifi.band5=false;const r=buildServices(s,p);assert.deepEqual(r.errors,[]);assert.match(r.config,/name="wifi1"\] disabled=yes/);assert.doesNotMatch(r.config,/channel.band=5ghz-ax/)});
+test('SNMP private + limited input + time',()=>{const r=buildServices({...defaultServices(),snmpEnabled:true,snmpAddress:'10.0.1.2/32',snmpAuthPassword:'test-auth',snmpEncryptionPassword:'test-enc',ntpEnabled:true,ntpServers:'10.0.1.3,time.example.org',timezone:'Europe/Moscow'},{...p,wifiEnabled:false});assert.deepEqual(r.errors,[]);assert.match(r.config,/security=private authentication-protocol=SHA1/);assert.match(r.config,/read-access=yes write-access=no/);assert.match(r.config,/time-zone-name="Europe\/Moscow"/);assert.equal(r.inputRules.length,2)});
+test('SNMP /0 and malformed NTP blocked',()=>{const s={...defaultServices(),snmpEnabled:true,snmpAddress:'0.0.0.0/0',ntpEnabled:true,ntpServers:'bad;command'};assert(buildServices(s,{...p,wifiEnabled:false}).errors.length)});
+test('regulatory and identifier validation',()=>{assert(buildServices({...make(),country:'Superchannel'},p).errors.length);assert(buildServices({...make(),radio24:'wifi1'},p).errors.length)});
+console.log(n+' tests passed');

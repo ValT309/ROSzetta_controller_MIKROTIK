@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict');
+const {defaultDns,buildDns}=require(process.argv[2]);
+const vlans=[{id:'120',subnet:'192.168.120.0/24',gateway:'192.168.120.1',dhcp:true},{id:'140',subnet:'192.168.140.0/24',gateway:'192.168.140.1',dhcp:true}];
+const run=(s=defaultDns(),pub='77.88.8.8,8.8.4.4',profile='standard',t=[])=>buildDns(s,pub,vlans,'140',profile,t);
+let n=0; const test=(title,fn)=>{fn();n++;console.log('PASS',title)};
+test('public and corporate groups, exact exception order',()=>{const r=run();assert.deepEqual(r.errors,[]);assert.match(r.config,/servers=77\.88\.8\.8,8\.8\.4\.4 allow-remote-requests=no/);assert.match(r.config,/dns-servers=10\.110\.0\.15,10\.110\.0\.16/);assert(r.config.indexOf('name=vpngate1.gk-nvm.ru')<r.config.indexOf('name=gk-nvm.ru type=FWD'));assert.match(r.config,/name=gk-nvm.ru type=FWD forward-to=rz-dns-corp match-subdomain=yes/);});
+test('trusted DHCP and DNS, guest bypass, IPv6 blocked',()=>{const r=run();assert.equal(r.inputRules.length,2);assert(r.inputRules.every(x=>x.includes('in-interface=vlan120 src-address=192.168.120.0/24')));assert(!r.enableConfig.includes('dhcp-server network set'));assert.equal(r.config.split('forwarders add').length-1,3);assert.match(r.config,/name=vpngate2.gk-nvm.ru type=FWD forward-to=rz-dns-ex-1/);assert(!r.enableConfig.includes('192.168.140'));assert(r.enableConfig.endsWith('allow-remote-requests=yes'));assert.match(r.enableConfig,/ipv6 firewall filter/)});
+test('disabled mode',()=>{const r=run({...defaultDns(),splitDns:false});assert.deepEqual(r.errors,[]);assert.equal(r.enableConfig,'');assert.equal(r.inputRules.length,0);assert(!r.config.includes('forwarders'));});
+test('custom firewall rejected',()=>assert(run(defaultDns(),undefined,'custom').errors.length));
+test('bad IPv4 rejected',()=>assert(run(defaultDns(),'999.1.1.1').errors.length));
+test('domain injection rejected',()=>assert(run({...defaultDns(),dnsDomain:'gk-nvm.ru;bad'}).errors.length));
+test('duplicate exception rejected case insensitively',()=>{const s=defaultDns();s.dnsExceptions.push({domain:'VPNGATE1.GK-NVM.RU',servers:'8.8.8.8'});assert(run(s).errors.length);});
+test('VPN bootstrap requires public exception',()=>{assert(run(defaultDns(),undefined,undefined,[{enabled:true,server:'new.gk-nvm.ru'}]).errors.length);assert.deepEqual(run(defaultDns(),undefined,undefined,[{enabled:true,server:'vpngate1.gk-nvm.ru'}]).errors,[]);});
+console.log(n+' DNS tests passed');

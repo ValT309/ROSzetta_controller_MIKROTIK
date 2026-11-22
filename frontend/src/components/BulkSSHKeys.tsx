@@ -1,0 +1,8 @@
+import {useRef,useState} from 'react';
+import {api,type Device} from '@/api/client';
+type Row={id:number;name:string;host:string;observed?:string;changed?:boolean;fingerprints?:string[];error?:string};
+export default function BulkSSHKeys({devices}:{devices:Device[]}){
+ const [rows,setRows]=useState<Row[]>([]),[busy,setBusy]=useState(false);const running=useRef(false),stop=useRef(false);
+ const scan=async()=>{if(running.current)return;running.current=true;stop.current=false;setBusy(true);setRows([]);try{for(const d of devices){if(stop.current)break;const base={id:d.id,name:d.identity||d.name,host:d.host};try{const {data}=await api.post(`/devices/${d.id}/ssh-trust/scan`);setRows(old=>[...old,{...base,observed:data.observed,changed:data.changed,fingerprints:data.fingerprints}]);}catch{setRows(old=>[...old,{...base,error:'SSH недоступен'}]);}}}finally{running.current=false;setBusy(false);}};
+ return <details className="space-y-2"><summary>Массовое получение SSH-ключей</summary><p className="text-mk-mute">Только получение отпечатков. Для подтверждения после независимой сверки откройте вкладку «Безопасность» соответствующего устройства.</p><button className="btn-secondary" disabled={busy||!devices.length} onClick={()=>void scan()}>Получить ключи ({devices.length})</button>{busy&&<button className="btn-secondary" onClick={()=>{stop.current=true}}>Остановить</button>}{rows.map(r=><div key={r.id} className="border-t border-mk-border py-1"><b>{r.name} · {r.host}</b><p className={r.changed||r.error?'text-mk-err':'text-mk-mute'}>{r.error||r.observed}{r.changed?' · Ключ изменился':r.fingerprints?.includes(r.observed||'')?' · Известный ключ':''}</p></div>)}</details>;
+}

@@ -1,0 +1,64 @@
+# Secrets and environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+
+# Backups and databases
+*.bak
+*.backup
+*.backup-*
+*.sql
+*.dump
+*.sqlite
+*.sqlite3
+*.tar
+*.tar.gz
+*.zip
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Frontend
+node_modules/
+dist/
+.vite/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+
+# Local data
+data/
+backups/
+
+# ROSzetta development backups
+.constructor-backups/
+.patch-backups/
+*.orig
+*.orig[0-9]*
+*.bak-*
+*.backup*
+*.tsbuildinfo
+
+# Local SSH data
+*known_hosts*
+.ssh/
+
+# Runtime data
+*.rsc
+*.backup
+
+# Additional backup files
+*.bak[0-9]*
+*.bak[0-9]*

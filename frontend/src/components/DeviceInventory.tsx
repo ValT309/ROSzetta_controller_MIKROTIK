@@ -1,0 +1,23 @@
+import {useState} from 'react';
+import {MessageSquare} from 'lucide-react';
+import {api,type Device} from '@/api/client';
+const fields=[['location','Местоположение',256],['purpose','Назначение',256],['inventory_number','Инвентарный номер',128],['comment','Комментарий',4000]] as const;
+type Key=typeof fields[number][0];
+const initial=(d:Device)=>Object.fromEntries(fields.map(([key])=>[key,d[key]||''])) as Record<Key,string>;
+const errorText=(e:unknown)=>{const detail=(e as {response?:{data?:{detail?:unknown}}})?.response?.data?.detail;return typeof detail==='string'?detail:'Не удалось подтвердить сохранение; обновите данные.'};
+export function InventorySummary({device}:{device:Device}){
+ const text=[device.location,device.purpose,device.comment,device.inventory_number?`Инв. № ${device.inventory_number}`:null].filter(Boolean).join(' · ');
+ return text?<div className="text-[11px] text-mk-mute truncate max-w-[320px]" title={text}>{text}</div>:null;
+}
+export function EditInventory({device,onSaved,caption=false}:{device:Device;onSaved:()=>void|Promise<unknown>;caption?:boolean}){
+ const [open,setOpen]=useState(false),[data,setData]=useState(()=>initial(device)),[before,setBefore]=useState(()=>initial(device)),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const start=()=>{const v=initial(device);setBefore(v);setData(v);setError('');setOpen(true)};
+ const changed=fields.filter(([k])=>data[k]!==before[k]);
+ async function save(){if(busy||!changed.length)return;setBusy(true);setError('');try{await api.patch(`/devices/${device.id}/inventory`,Object.fromEntries(changed.map(([k])=>[k,data[k].trim()||null])));setOpen(false);await onSaved()}catch(e){setError(errorText(e))}finally{setBusy(false)}}
+ return <><button type="button" className="btn-ghost !px-1.5 !py-0.5 ml-1 inline-flex items-center gap-1" title="Местоположение и комментарий" aria-label="Местоположение и комментарий" onClick={start}><MessageSquare size={13}/>{caption&&'Инвентаризация'}</button>{open&&<div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Инвентаризация устройства"><div className="card w-full max-w-lg p-5 space-y-3 text-left max-h-[90vh] overflow-auto"><h3 className="font-semibold">Инвентаризация оборудования</h3><p className="text-mk-mute">{device.identity||device.name} · {device.host}</p><p className="text-xs text-mk-mute">Данные ROSzetta. Конфигурация MikroTik не меняется.</p><fieldset disabled={busy} className="space-y-3">{fields.map(([k,label,maxLength])=><label className="block text-sm" key={k}>{label}{k==='comment'?<textarea rows={4} className="input w-full" maxLength={maxLength} value={data[k]} onChange={e=>setData(old=>({...old,[k]:e.target.value}))}/>:<input className="input" maxLength={maxLength} value={data[k]} onChange={e=>setData(old=>({...old,[k]:e.target.value}))}/>}</label>)}</fieldset>{error&&<p role="alert" className="text-mk-err">{error}</p>}<div className="flex gap-2 justify-end"><button type="button" className="btn-secondary" disabled={busy} onClick={()=>setOpen(false)}>Отмена</button><button type="button" className="btn-primary" disabled={busy||!changed.length} onClick={()=>void save()}>Сохранить</button></div></div></div>}</>;
+}
+export function BulkInventory({devices,onSaved}:{devices:Device[];onSaved:()=>void|Promise<unknown>}){
+ const [open,setOpen]=useState(false),[location,setLocation]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ async function save(){if(busy||!devices.length||!window.confirm(`Заменить местоположение у ${devices.length} выбранных устройств (включая скрытые фильтром)?`))return;setBusy(true);setError('');try{await api.post('/devices/inventory/location',{ids:devices.map(d=>d.id),location:location.trim()||null});setOpen(false);await onSaved()}catch(e){setError(errorText(e))}finally{setBusy(false)}}
+ return <><button type="button" className="btn-secondary" disabled={!devices.length||busy} onClick={()=>{setOpen(v=>!v);setError('')}}>Местоположение ({devices.length})</button>{open&&<div className="flex flex-wrap items-center gap-2"><input className="input !w-auto" placeholder="Новое местоположение" aria-label="Новое местоположение" maxLength={256} value={location} disabled={busy} onChange={e=>setLocation(e.target.value)}/><button type="button" className="btn-primary" disabled={busy||!devices.length||!location.trim()} onClick={()=>void save()}>Заменить местоположение</button><button type="button" className="btn-secondary" disabled={busy} onClick={()=>setOpen(false)}>Отмена</button>{error&&<span className="text-mk-err">{error}</span>}</div>}</>;
+}

@@ -1,0 +1,12 @@
+const {lineDiff}=require(process.argv[2]);const assert=require('node:assert/strict');
+const same='/ip address add address=10.0.0.1/24 interface=ether2';
+assert.deepEqual(lineDiff('/ip address\nadd address=10.0.0.1/24 interface=ether2',same),[]);
+assert.deepEqual(lineDiff('/ip/address add address=10.0.0.1/24 interface=ether2',same),[]);
+let d=lineDiff(same,same.replace('10.0.0.1','10.0.0.2'));assert.equal(d.length,2);assert.match(d[0].text,/10.0.0.1/);assert.match(d[1].text,/10.0.0.2/);
+d=lineDiff('/interface l2tp-client add name=vpn password="SECRET-OLD" ipsec-secret="one"','/interface l2tp-client add name=vpn password="SECRET-NEW" ipsec-secret="two"');assert.equal(d.length,2);assert.doesNotMatch(JSON.stringify(d),/SECRET|"one"|"two"/);
+d=lineDiff('/system script add name=x source="password=SECRET"','');assert.doesNotMatch(JSON.stringify(d),/SECRET/);
+d=lineDiff('/ip firewall filter add chain=input action=accept\n/ip firewall filter add chain=input action=drop','/ip firewall filter add chain=input action=drop\n/ip firewall filter add chain=input action=accept');assert.equal(d.length,2);
+assert.throws(()=>lineDiff('x\n'.repeat(1501),''),/too-large/);
+assert.equal(lineDiff('/system reboot','').length,1);
+assert.deepEqual(lineDiff('# comment\n'+same,same),[]);
+console.log('9 diff cases OK');
