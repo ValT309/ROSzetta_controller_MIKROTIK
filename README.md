@@ -12,3 +12,21 @@ ROSzetta Self-hosted web application for managing MikroTik device fleets. Monito
 <p align="center">
   <img src="screen2.png" alt="Dashboard" width="100%">
 </p>
+---
+
+## ❤️ Поддержать ROSzetta
+
+ROSzetta — бесплатный проект с открытым исходным кодом для управления и автоматизации MikroTik RouterOS.
+
+Если проект оказался полезным, вы можете поддержать дальнейшую разработку через Telegram Wallet.
+
+### 💎 Донаты через TON
+
+**Адрес кошелька в сети TON:**
+
+UQAB8xTyQuoX-a4rIV4dEMqN9dtjKqufBm1bN86LJFxXTgB3
+
+**Важно:** используйте только поддерживаемые кошельком криптовалюты и сети.
+
+Спасибо за поддержку ROSzetta! ❤️
+
